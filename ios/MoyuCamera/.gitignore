@@ -1,0 +1,7 @@
+build/
+*.xcodeproj/
+Config/Info.plist
+Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+.DS_Store
+__pycache__/
+*.pyc

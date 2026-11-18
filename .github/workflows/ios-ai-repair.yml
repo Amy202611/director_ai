@@ -1,0 +1,91 @@
+name: iOS Optional AI Repair
+on:
+  workflow_run:
+    workflows: ["iOS Unsigned IPA"]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  repair:
+    if: >-
+      vars.IOS_AI_REPAIR == 'true' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1 &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.event != 'pull_request'
+    runs-on: macos-15
+    timeout-minutes: 35
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Prepare tools
+        run: |
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
+          mkdir -p ios/MoyuCamera/build
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: moyu-ios-logs-*
+          merge-multiple: true
+          path: ios/MoyuCamera/build/failure-logs
+      - name: Correct source
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          working-directory: ${{ github.workspace }}/ios/MoyuCamera
+          prompt-file: ${{ github.workspace }}/ios/MoyuCamera/scripts/ai-repair-prompt.md
+          output-file: ${{ github.workspace }}/ios/MoyuCamera/build/ai-repair-summary.md
+          permission-profile: ":workspace"
+          safety-strategy: drop-sudo
+      - name: Limit correction scope
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          paths = subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines()
+          paths += subprocess.check_output(["git", "ls-files", "--others", "--exclude-standard"], text=True).splitlines()
+          allowed = lambda p: (p.startswith("ios/MoyuCamera/Sources/") and p.endswith(".swift")) or p in {"ios/MoyuCamera/project.yml", "ios/MoyuCamera/scripts/generate_icon.swift"}
+          if not paths or not all(allowed(p) for p in paths):
+              raise SystemExit("Unexpected edit scope: " + repr(paths))
+          PY
+      - name: Rebuild validated IPA
+        run: bash ios/MoyuCamera/scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MoyuCamera-repaired-arm64-${{ github.run_id }}
+          path: ios/MoyuCamera/build/artifacts/
+          if-no-files-found: error
+      - name: Save repair in a separate branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED_RUN: ${{ github.event.workflow_run.id }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          branch="ios/repair-$FAILED_RUN"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add ios/MoyuCamera/Sources ios/MoyuCamera/project.yml ios/MoyuCamera/scripts/generate_icon.swift
+          git commit -m "fix(ios): correct failed build $FAILED_RUN"
+          gh auth setup-git
+          git push origin "$branch"
+          if ! gh pr create --base "$BASE_BRANCH" --head "$branch" --title "Repair iOS build $FAILED_RUN" --body-file ios/MoyuCamera/build/ai-repair-summary.md; then
+            echo "Validated repair saved on $branch; create its PR manually if repository policy blocks automatic PRs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Keep repair logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-repair-logs-${{ github.run_id }}
+          path: |
+            ios/MoyuCamera/build/*.log
+            ios/MoyuCamera/build/*.md
+          if-no-files-found: ignore

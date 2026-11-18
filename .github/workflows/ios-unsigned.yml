@@ -1,0 +1,53 @@
+name: iOS Unsigned IPA
+on:
+  push:
+    paths:
+      - "ios/MoyuCamera/**"
+      - ".github/workflows/ios-unsigned.yml"
+      - ".github/workflows/ios-ai-repair.yml"
+  pull_request:
+    paths:
+      - "ios/MoyuCamera/**"
+      - ".github/workflows/ios-unsigned.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: moyu-ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test ASCII names and real-device packaging rules
+        run: python3 -m unittest discover -s ios/MoyuCamera/tests -v
+      - name: Compile and package SideStore-compatible unsigned IPA
+        run: bash ios/MoyuCamera/scripts/build.sh
+      - name: Upload corrected IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoyuCamera-SideStore-Fix-arm64-${{ github.run_number }}
+          path: ios/MoyuCamera/build/artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Keep build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moyu-ios-logs-${{ github.run_id }}
+          path: |
+            ios/MoyuCamera/build/*.log
+            ios/MoyuCamera/build/*.md
+            ios/MoyuCamera/build/Archive.xcresult
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Failure summary
+        if: failure()
+        run: |
+          if [ -f ios/MoyuCamera/build/diagnostics.md ]; then
+            cat ios/MoyuCamera/build/diagnostics.md >> "$GITHUB_STEP_SUMMARY"
+          fi
