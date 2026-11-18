@@ -14,7 +14,7 @@ jobs:
       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.event != 'pull_request'
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 35
     permissions:
       contents: write
