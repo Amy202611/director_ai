@@ -11,7 +11,7 @@ enum Media {
         guard let src = CGImageSourceCreateWithData(data as CFData,nil),
               let cg = CGImageSourceCreateThumbnailAtIndex(src,0,[
                 kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceCreateThumbnailWithTransform:true,
-                kCGImageSourceThumbnailMaxPixelSize:3072] as CFDictionary) else { return nil }
+                kCGImageSourceThumbnailMaxPixelSize:4096] as CFDictionary) else { return nil }
         return UIImage(cgImage:cg)
     }
     static func save(image:UIImage?,video:URL?) async throws {

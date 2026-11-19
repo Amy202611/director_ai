@@ -6,11 +6,12 @@ import UIKit
     @ObservedObject var store:StampStore
     var interactive = true
     @State private var origin:CGPoint?
+    @Environment(\.displayScale) private var displayScale
     var body:some View {
         GeometryReader { geo in
-            let size = geo.size, rect = StampRenderer.brandRect(geo.size,store.value)
+            let size = geo.size, rect = StampRenderer.brandRect(geo.size,store.snapshot())
             ZStack(alignment:.topLeading) {
-                Image(uiImage:StampRenderer.overlay(size,store.value)).resizable()
+                Image(uiImage:StampRenderer.overlay(size,store.snapshot(),rasterScale:displayScale)).resizable()
                     .frame(width:size.width,height:size.height).allowsHitTesting(false)
                 if store.value.hasBrand && interactive {
                     Rectangle().fill(Color.white.opacity(0.001))
@@ -72,6 +73,8 @@ import UIKit
                 TextField("标签",text:field(\.badge)).textFieldStyle(.roundedBorder)
                 TextField("手机型号（可留空）",text:field(\.device)).textFieldStyle(.roundedBorder)
                 TextField("其他说明（可留空）",text:field(\.note),axis:.vertical).textFieldStyle(.roundedBorder)
+                Text("每张照片自动生成15位随机字母数字编号，显示为“防伪＋序列号”；重复保存同一张照片编号不变。").font(.caption).foregroundStyle(.secondary)
+                Text("编号是本地标识，不提供联网验真。").font(.caption2).foregroundStyle(.secondary)
                 Text("拖动预览中的标识调整位置，文字留空自动隐藏。").font(.caption).foregroundStyle(.secondary)
                 Button("回到右下角") { store.value.x = -1; store.value.y = -1 }.font(.footnote)
                 Toggle("显示自定义说明",isOn:$store.value.custom).font(.subheadline)

@@ -59,6 +59,80 @@ final class CameraPipelineTests:XCTestCase {
         XCTAssertGreaterThan(white(image,top:false),20,"Saved video watermark must be at the bottom")
         XCTAssertEqual(white(image,top:true),0,"Saved video must match preview, without vertical flip")
     }
+    func testSerialLengthAlphabetAndRandomness() {
+        var values = Set<String>()
+        for _ in 0..<500 {
+            let code = StampSerial.make()
+            XCTAssertEqual(code.count,15)
+            XCTAssertNotNil(code.range(of:"^[A-Z0-9]{15}$",options:.regularExpression))
+            XCTAssertTrue(values.insert(code).inserted)
+            var stamp = Stamp(); stamp.serial = code
+            XCTAssertEqual(stamp.serialText,"防伪 "+code)
+            XCTAssertFalse(stamp.serialText.contains("©"))
+        }
+    }
+    @MainActor func testPhotoIdentitySurvivesEditingSavingAndTemplateReload() throws {
+        let suite = "camera.tests."+UUID().uuidString
+        let defaults = UserDefaults(suiteName:suite)!
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let store = StampStore(defaults:defaults)
+        let first = store.snapshot().serial
+        store.value.address = "天津市和平区完整地址"; store.save()
+        XCTAssertEqual(store.snapshot().serial,first)
+        store.save(); XCTAssertEqual(store.snapshot().serial,first)
+        let template = try JSONDecoder().decode(Stamp.self,from:defaults.data(forKey:"moyu.stamp.v3")!)
+        XCTAssertNil(template.serial)
+        store.beginMedia()
+        XCTAssertNotEqual(store.snapshot().serial,first)
+        var legacy = try JSONSerialization.jsonObject(with:JSONEncoder().encode(Stamp())) as! [String:Any]
+        legacy.removeValue(forKey:"serial")
+        let decoded = try JSONDecoder().decode(Stamp.self,from:JSONSerialization.data(withJSONObject:legacy))
+        XCTAssertNil(decoded.serial)
+    }
+    func testLongAddressWrapsAndPreservesItsEnding() {
+        var stamp = Stamp()
+        stamp.address = String(repeating:"天津市和平区康定路地铁站出口附近",count:5)+"最终门牌号"
+        stamp.serial = "Q7M4K9X2R8P5T6A"
+        let rows = StampRenderer.detailRows(CGSize(width:600,height:800),stamp)
+        let address = rows.first { $0.text.hasPrefix("地点：") }!
+        XCTAssertTrue(address.text.hasSuffix("最终门牌号"))
+        XCTAssertGreaterThan(address.rect.height,UIFont.systemFont(ofSize:18,weight:.semibold).lineHeight*3)
+        XCTAssertGreaterThanOrEqual(address.rect.minY,0)
+        XCTAssertLessThan(address.rect.maxY,800-14-15)
+    }
+    func testRetinaPhotoAndPreviewRetainPixelDimensions() throws {
+        let format = UIGraphicsImageRendererFormat(); format.scale = 2; format.opaque = true
+        let source = UIGraphicsImageRenderer(size:CGSize(width:300,height:400),format:format).image { _ in
+            UIColor.black.setFill(); UIRectFill(CGRect(x:0,y:0,width:300,height:400))
+        }
+        let output = StampRenderer.photo(source,Stamp())
+        XCTAssertEqual(output.cgImage?.width,600); XCTAssertEqual(output.cgImage?.height,800)
+        let preview = StampRenderer.overlay(CGSize(width:200,height:300),Stamp(),rasterScale:3)
+        XCTAssertEqual(preview.cgImage?.width,600); XCTAssertEqual(preview.cgImage?.height,900)
+    }
+    func testCompiledHomeScreenIconHasColoredArtwork() throws {
+        let bundle = Bundle(for:Camera.self)
+        let paths = bundle.paths(forResourcesOfType:"png",inDirectory:nil).filter { URL(fileURLWithPath:$0).lastPathComponent.hasPrefix("AppIcon") }
+        XCTAssertFalse(paths.isEmpty,"Compiled iPhone icon rasters must be present")
+        for path in paths {
+            let icon = try XCTUnwrap(UIImage(contentsOfFile:path))
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+            let sampled = UIGraphicsImageRenderer(size:CGSize(width:64,height:64),format:format).image { _ in
+                icon.draw(in:CGRect(x:0,y:0,width:64,height:64))
+            }
+            let cg = try XCTUnwrap(sampled.cgImage)
+            let data = try XCTUnwrap(cg.dataProvider?.data)
+            let bytes = CFDataGetBytePtr(data)!
+            var bright = 0, colors = Set<Int>()
+            for y in 0..<64 { for x in 0..<64 {
+                let p = y*cg.bytesPerRow+x*4
+                if max(bytes[p],max(bytes[p+1],bytes[p+2])) > 40 { bright += 1 }
+                colors.insert(Int(bytes[p]/32)*64+Int(bytes[p+1]/32)*8+Int(bytes[p+2]/32))
+            } }
+            XCTAssertGreaterThan(bright,409,"App icon must not be a black square")
+            XCTAssertGreaterThan(colors.count,16,"App icon must contain real artwork")
+        }
+    }
     private func white(_ image:UIImage,top:Bool)->Int {
         let f = UIGraphicsImageRendererFormat(); f.scale = 1
         let rendered = UIGraphicsImageRenderer(size:image.size,format:f).image { _ in image.draw(at:.zero) }

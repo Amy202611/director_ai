@@ -78,13 +78,13 @@ struct ImportedMovie:Transferable {
                     .disabled(importing || exporting)
                     .overlay { if importing || exporting { progressView } }
             }
-            .navigationTitle("摸鱼相机1.0").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("摸鱼相机").navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
             .tint(tint).preferredColorScheme(mode == 1 ? .light : .dark)
             .task { camera.start() }
             .task(id:selection) { await importMedia() }
             .onChange(of:camera.photoID) { _ in
-                if let captured = camera.image { image = captured; video = nil; player?.pause(); player = nil; camera.suspend() }
+                if let captured = camera.image { store.beginMedia(); image = captured; video = nil; player?.pause(); player = nil; camera.suspend() }
             }
             .onChange(of:camera.movieURL) { url in if let url { Task { await selectVideo(url) } } }
             .onChange(of:locator.resultID) { _ in
@@ -223,7 +223,7 @@ struct ImportedMovie:Transferable {
                 guard !Task.isCancelled else { return }; await selectVideo(movie.url)
             } else {
                 guard let data = try await selection.loadTransferable(type:Data.self),let result = Media.decode(data) else { throw Media.error("照片读取失败") }
-                guard !Task.isCancelled else { return }; player?.pause(); player = nil; video = nil; image = result
+                guard !Task.isCancelled else { return }; store.beginMedia(); player?.pause(); player = nil; video = nil; image = result
             }
         } catch { if !Task.isCancelled { message = error.localizedDescription } }
         if !hasMedia { camera.start() }
@@ -236,11 +236,11 @@ struct ImportedMovie:Transferable {
             let size = try await track.load(.naturalSize), transform = try await track.load(.preferredTransform)
             let bounds = CGRect(origin:.zero,size:size).applying(transform)
             videoSize = CGSize(width:abs(bounds.width),height:abs(bounds.height))
-            player?.pause(); image = nil; video = url; player = AVPlayer(url:url)
+            store.beginMedia(); player?.pause(); image = nil; video = url; player = AVPlayer(url:url)
         } catch { message = error.localizedDescription }
     }
     private func export() {
-        let stamp = store.value
+        let stamp = store.snapshot()
         if let image { outputImage = StampRenderer.photo(image,stamp); outputVideo = nil; previewing = true }
         else if let video {
             player?.pause(); progress = 0; exporting = true
