@@ -31,7 +31,9 @@ import UIKit
     @ObservedObject var store:StampStore
     @ObservedObject var locator:Locator
     var locate:()->Void
-    @State private var calendar = false, clock = false, saved = false
+    @State private var calendar = false
+    @State private var clock = false
+    @State private var saved = false
     @State private var draft = Date()
     private func field(_ key:WritableKeyPath<Stamp,String>)->Binding<String> {
         Binding(get:{store.value[keyPath:key]},set:{store.value[keyPath:key] = $0})

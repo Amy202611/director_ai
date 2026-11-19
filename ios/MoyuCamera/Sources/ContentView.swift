@@ -25,9 +25,14 @@ struct ImportedMovie:Transferable {
     @State private var videoSize = CGSize(width:9,height:16)
     @State private var player:AVPlayer?
     @State private var selection:PhotosPickerItem?
-    @State private var videoMode = false, microphone = true, keepAudio = true
+    @State private var videoMode = false
+    @State private var microphone = true
+    @State private var keepAudio = true
     @State private var resolution = 1920
-    @State private var editing = false, previewing = false, importing = false, exporting = false
+    @State private var editing = false
+    @State private var previewing = false
+    @State private var importing = false
+    @State private var exporting = false
     @State private var outputImage:UIImage?
     @State private var outputVideo:URL?
     @State private var progress = 0.0

@@ -50,7 +50,7 @@ enum Media {
             if index == 0 { v.preferredTransform = try await source.load(.preferredTransform) }
             if let audio = try await asset.loadTracks(withMediaType:.audio).first {
                 if a == nil { a = c.addMutableTrack(withMediaType:.audio,preferredTrackID:kCMPersistentTrackID_Invalid) }
-                let ar = CMTimeRangeGetIntersection(range,try await audio.load(.timeRange))
+                let ar = CMTimeRangeGetIntersection(range,otherRange:try await audio.load(.timeRange))
                 if ar.isValid && CMTimeCompare(ar.duration,.zero) > 0 { try a?.insertTimeRange(ar,of:audio,at:CMTimeAdd(cursor,CMTimeSubtract(ar.start,range.start))) }
             }
             cursor = CMTimeAdd(cursor,range.duration)
@@ -73,7 +73,7 @@ enum Media {
         try video.insertTimeRange(range,of:source,at:.zero)
         if keepAudio,let audio = try await asset.loadTracks(withMediaType:.audio).first,
            let target = composition.addMutableTrack(withMediaType:.audio,preferredTrackID:kCMPersistentTrackID_Invalid) {
-            let ar = CMTimeRangeGetIntersection(range,try await audio.load(.timeRange))
+            let ar = CMTimeRangeGetIntersection(range,otherRange:try await audio.load(.timeRange))
             if ar.isValid && CMTimeCompare(ar.duration,.zero)>0 { try target.insertTimeRange(ar,of:audio,at:CMTimeSubtract(ar.start,range.start)) }
         }
         let li = AVMutableVideoCompositionLayerInstruction(assetTrack:video)
