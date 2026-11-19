@@ -16,6 +16,12 @@ for runtime, devices in sorted(data["devices"].items(),reverse=True):
 raise SystemExit("No iPhone simulator for selected Xcode SDK "+sdk)
 PY
 )
+xcodebuild -showdestinations -project MoyuCamera.xcodeproj -scheme MoyuCamera \
+  -sdk iphonesimulator ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES 2>&1 | tee build/destinations.log
+if ! grep -q "$device" build/destinations.log; then
+  echo "Selected simulator is not visible to Xcode; inspect destinations.log"
+  exit 70
+fi
 xcrun simctl boot "$device" || true
 xcrun simctl bootstatus "$device" -b
 xcodebuild test -project MoyuCamera.xcodeproj -scheme MoyuCamera \
