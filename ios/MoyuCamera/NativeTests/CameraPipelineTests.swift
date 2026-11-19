@@ -134,17 +134,35 @@ final class CameraPipelineTests:XCTestCase {
         }
     }
     private func white(_ image:UIImage,top:Bool)->Int {
-        let f = UIGraphicsImageRendererFormat(); f.scale = 1
-        let rendered = UIGraphicsImageRenderer(size:image.size,format:f).image { _ in image.draw(at:.zero) }
-        guard let cg = rendered.cgImage,let data = cg.dataProvider?.data,let bytes = CFDataGetBytePtr(data),cg.bitsPerPixel == 32 else { return 0 }
-        let w = Int(image.size.width),h = Int(image.size.height)
+        guard let cg = image.cgImage else { XCTFail("Missing pixels"); return 0 }
+        let w = cg.width,h = cg.height
+        print("Watermark pixel format: bitsPerComponent=\(cg.bitsPerComponent), bitsPerPixel=\(cg.bitsPerPixel), size=\(w)x\(h)")
+        guard let space = CGColorSpace(name:CGColorSpace.sRGB),
+              let context = CGContext(data:nil,width:w,height:h,bitsPerComponent:8,bytesPerRow:w*4,space:space,
+                bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue),
+              let pixels = context.data else { XCTFail("RGBA normalization failed"); return 0 }
+        context.draw(cg,in:CGRect(x:0,y:0,width:CGFloat(w),height:CGFloat(h)))
+        let bytes = pixels.assumingMemoryBound(to:UInt8.self)
         let start = top ? 0 : h/2,end = top ? h/2 : h
         var count = 0
         for y in start..<end { for x in 0..<w {
-            let p = y*cg.bytesPerRow+x*4
+            let p = y*context.bytesPerRow+x*4
             if bytes[p]>170 && bytes[p+1]>170 && bytes[p+2]>170 { count += 1 }
         } }
         return count
+    }
+    func testPixelInspectionPreservesGrayscaleRows() throws {
+        let w = 20,h = 20
+        var bytes = [UInt8](repeating:0,count:w*h)
+        for y in 0..<10 { for x in 0..<20 { bytes[y*w+x] = 255 } }
+        let data = Data(bytes)
+        let provider = try XCTUnwrap(CGDataProvider(data:data as CFData))
+        let cg = try XCTUnwrap(CGImage(width:w,height:h,bitsPerComponent:8,bitsPerPixel:8,bytesPerRow:w,
+            space:CGColorSpaceCreateDeviceGray(),bitmapInfo:CGBitmapInfo(rawValue:CGImageAlphaInfo.none.rawValue),
+            provider:provider,decode:nil,shouldInterpolate:false,intent:.defaultIntent))
+        let image = UIImage(cgImage:cg)
+        XCTAssertEqual(white(image,top:true),200)
+        XCTAssertEqual(white(image,top:false),0)
     }
     private func fixture(frames:Int,rotated:Bool) async throws -> URL {
         let url = Media.file(".mov")
