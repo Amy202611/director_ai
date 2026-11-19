@@ -2,6 +2,7 @@ import UIKit
 import Photos
 import ImageIO
 import AVFoundation
+import CoreImage
 
 enum Media {
     static func file(_ suffix:String) -> URL { FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+suffix) }
@@ -76,16 +77,27 @@ enum Media {
             let ar = CMTimeRangeGetIntersection(range,otherRange:try await audio.load(.timeRange))
             if ar.isValid && CMTimeCompare(ar.duration,.zero)>0 { try target.insertTimeRange(ar,of:audio,at:CMTimeSubtract(ar.start,range.start)) }
         }
-        let li = AVMutableVideoCompositionLayerInstruction(assetTrack:video)
-        li.setTransform(transform.concatenating(CGAffineTransform(translationX:-bounds.minX,y:-bounds.minY)).concatenating(CGAffineTransform(scaleX:scale,y:scale)),at:.zero)
-        let instruction = AVMutableVideoCompositionInstruction(); instruction.timeRange = CMTimeRange(start:.zero,duration:range.duration); instruction.layerInstructions = [li]
-        let vc = AVMutableVideoComposition(); vc.renderSize = size; vc.frameDuration = CMTime(value:1,timescale:30); vc.instructions = [instruction]
-        let parent = CALayer(); parent.frame = CGRect(origin:.zero,size:size)
-        let vl = CALayer(); vl.frame = parent.bounds
-        let overlay = CALayer(); overlay.frame = parent.bounds
-        overlay.contents = StampRenderer.overlay(size,stamp).cgImage
-        parent.addSublayer(vl); parent.addSublayer(overlay)
-        vc.animationTool = AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer:vl,in:parent)
+        video.preferredTransform = transform.concatenating(CGAffineTransform(translationX:-bounds.minX,y:-bounds.minY)).concatenating(CGAffineTransform(scaleX:scale,y:scale))
+        guard let bitmap = StampRenderer.overlay(size,stamp).cgImage else { throw error("无法绘制水印") }
+        let watermark = CIImage(cgImage:bitmap)
+        let canvas = CGRect(origin:.zero,size:size)
+        #if targetEnvironment(simulator)
+        let context = CIContext(options:[.useSoftwareRenderer:true,.cacheIntermediates:false])
+        #else
+        let context = CIContext(options:[.cacheIntermediates:false])
+        #endif
+        let filtered = AVVideoComposition(asset:composition,applyingCIFiltersWithHandler:{ request in
+            let sourceImage = request.sourceImage
+            let extent = sourceImage.extent
+            guard extent.width > 0,extent.height > 0 else {
+                request.finish(with:error("视频帧尺寸无效")); return
+            }
+            let image = sourceImage.transformed(by:CGAffineTransform(translationX:-extent.minX,y:-extent.minY))
+                .transformed(by:CGAffineTransform(scaleX:size.width/extent.width,y:size.height/extent.height))
+            request.finish(with:watermark.composited(over:image).cropped(to:canvas),context:context)
+        })
+        guard let vc = filtered.mutableCopy() as? AVMutableVideoComposition else { throw error("无法建立视频合成任务") }
+        vc.renderSize = size; vc.frameDuration = CMTime(value:1,timescale:30)
         guard let ex = AVAssetExportSession(asset:composition,presetName:AVAssetExportPresetHighestQuality) else { throw error("无法创建视频导出任务") }
         let output = file(".mp4"); ex.outputURL = output; ex.outputFileType = .mp4; ex.videoComposition = vc; ex.shouldOptimizeForNetworkUse = true
         let monitor = Task { while !Task.isCancelled { progress(Double(ex.progress)); try? await Task.sleep(nanoseconds:200_000_000) } }

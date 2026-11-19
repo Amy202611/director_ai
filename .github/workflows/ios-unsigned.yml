@@ -51,6 +51,7 @@ jobs:
           path: |
             ios/MoyuCamera/build/*.log
             ios/MoyuCamera/build/*.md
+            ios/MoyuCamera/build/native-summary.json
             ios/MoyuCamera/build/Archive.xcresult
             ios/MoyuCamera/build/NativeTests.xcresult
           if-no-files-found: ignore

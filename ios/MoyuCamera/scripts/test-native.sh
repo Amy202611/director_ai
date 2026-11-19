@@ -24,8 +24,16 @@ if ! grep -q "$device" build/destinations.log; then
 fi
 xcrun simctl boot "$device" || true
 xcrun simctl bootstatus "$device" -b
-xcodebuild test -project MoyuCamera.xcodeproj -scheme MoyuCamera \
+set +e
+xcodebuild test -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 120 -project MoyuCamera.xcodeproj -scheme MoyuCamera \
   -configuration Debug -sdk iphonesimulator -parallel-testing-enabled NO -destination "platform=iOS Simulator,id=$device" \
   -derivedDataPath "$PWD/build/SimulatorData" -resultBundlePath "$PWD/build/NativeTests.xcresult" \
   ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" 2>&1 | tee build/native-tests.log
+status=${PIPESTATUS[0]}
+set -e
+if [[ "$status" != 0 ]]; then
+  xcrun xcresulttool get test-results summary --path build/NativeTests.xcresult > build/native-summary.json 2>&1 || true
+  cat build/native-summary.json
+fi
+exit "$status"
