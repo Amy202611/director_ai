@@ -8,7 +8,7 @@ permissions:
 jobs:
   diagnose:
     runs-on: macos-15-intel
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Read runner and simulator registration
@@ -33,3 +33,23 @@ jobs:
               if any(line.strip().startswith(k) for k in keys): print(line)
           PY
           xcodebuild -showdestinations -project MoyuCamera.xcodeproj -scheme MoyuCamera -sdk iphonesimulator ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES
+      - name: Run date and photo tests without video codecs
+        timeout-minutes: 10
+        run: |
+          cd ios/MoyuCamera
+          swift scripts/generate_icon.swift Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+          python3 - <<'PY'
+          from pathlib import Path
+          script=Path("scripts/test-native.sh").read_text()
+          script=script.replace("xcodebuild test -project", "xcodebuild test -only-testing:MoyuCameraTests/CameraPipelineTests/testDatesAndEmptyFields -only-testing:MoyuCameraTests/CameraPipelineTests/testPhotoEmptyAndMovedWatermark -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 120 -project")
+          Path("build/subset.sh").write_text(script)
+          PY
+          bash build/subset.sh
+      - name: Preserve minimal-test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-minimal-diagnostic
+          path: |
+            ios/MoyuCamera/build/*.log
+            ios/MoyuCamera/build/NativeTests.xcresult
