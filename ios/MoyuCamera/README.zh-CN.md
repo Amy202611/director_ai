@@ -1,69 +1,35 @@
-# MoyuCamera：SideStore 名称修复版
+# 摸鱼相机原生 iOS 2.0
 
-原生 Swift + SwiftUI 基础工程，应用内为中文；桌面和安装名称为英文 MoyuCamera。
-此仓库已重新初始化，当前原生基础工程不包含安卓相机的完整功能。
-已有：照片导入、本地水印预览、日期时间及地址输入、三种外观。
-拍照、GPS 和视频导出尚未移植到此 iOS 基础版本。
+Swift + SwiftUI，最低 iOS 16.0，真实 iPhone ARM64；Windows 用户无需 Xcode。
 
-## 本次修复
+## 功能
+- 原生相机拍照、前后镜头；相册导入照片或视频。
+- 日历日期、24 小时时分滚轮、自动星期；可分别隐藏日期与时间。
+- 获取当前 GPS 地址，支持手动修改；定位不会覆盖等待期间的新手动输入。
+- 马克 / 水印相机 / 真实时间三行可改、可清空、可拖动；自定义说明默认关闭。
+- 三种界面切换：沉浸拍摄、简约编辑、专业工作台；水印模板自动持久保存。
+- 录像开始、暂停、继续、结束；分段合并，暂停不计入最终时长，支持原声。
+- 照片和视频使用同一水印绘制器；导出后预览实际合成结果，再保存系统相册。
+- 视频导出 MP4，720p / 1080p 上限，不放大原视频；整段采用导出时的静态水印。
 
-SideStore 报错 SideSign.DeveloperPortalError 10：
-An invalid value '摸鱼相机' was provided for the parameter 'appIdName'。
+## 构建和分享
+每次推送应用代码自动构建，也可在 Actions 手动 Run workflow。
+XcodeGen 生成工程；签名全部关闭；校验 ARM64、iPhoneOS、未签名、未加密及 ASCII 安装名称。
+原生测试验证日期、照片合成、分段时长和竖屏视频的水印位置。
+main 分支测试通过后自动发布 GitHub Release，直接下载 MoyuCamera.ipa，无需解压 Actions ZIP。
+Actions 同时保留 IPA、SHA256、验证报告和日志。
 
-将 CFBundleName、CFBundleDisplayName 统一固定为 ASCII MoyuCamera，
-避免 SideStore 向 Apple Developer Portal 提交中文 App ID 名称。
-不添加 InfoPlist.strings 的中文名称覆盖，应用内部导航和按钮仍可正常使用中文。
-这不是仅修改 IPA 文件名。
+IPA 可直接转发文件或 Release 下载链接。收件人仍须用 SideStore 等工具以自己的 Apple ID 签名。
+免费 Apple ID 签名通常需每 7 天刷新，无法保证永久免签或直接点击安装。
+CFBundleName / CFBundleDisplayName 使用 MoyuCamera，避免 SideStore 对中文 appIdName 的拒绝；界面中文。
+无需将 Apple ID 密码或签名证书交给 CI。
 
-构建后的 IPA 会重新读取二进制 Info.plist 校验两种名称，
-并核对真机 ARM64、iPhoneOS、最低 iOS 16.0、无签名和无加密。
-此修复包内部版本为 1.0.1，构建号从 101 起。
-实际 Apple ID 注册和 iPhone 安装仍需在 SideStore 验证。
+## 图标
+Resources/AppIconSource.png 是根据用户提供的黑银相机、蓝色鱼镜头与黄色摸鱼便签图标适配生成的版本，
+并非原图字节完全相同的拷贝。构建时转换为 1024px 不透明 iOS 图标。
 
-## Windows 下载及安装
-
-打开 Actions → iOS Unsigned IPA → 最近绿色运行 → Artifacts。
-下载 MoyuCamera-SideStore-Fix-arm64-编号 ZIP 并解压，
-取得 MoyuCamera-SideStore-Fix.ipa。把它传到 iPhone“文件”中，
-在 SideStore 的 My Apps 点加号，重新选择这个新的 IPA。
-不要再次选择旧的中文名称安装包。
-
-桌面显示 MoyuCamera，进入应用后显示“摸鱼相机”中文界面。
-免费 Apple ID 的签名期限和数量限制仍由 Apple 决定。
-本工程最低 iOS 16.0，截图里 wloc 要求 iOS 27 的报错属于另一个应用。
-SideStore 自身准备、配对、VPN 或开发者模式请参考其当前官方说明：
-https://docs.sidestore.io/ 。
-
-## 自动打包
-
-修改 ios/MoyuCamera 中的应用代码并推送到 main 后自动编译；
-也可进入 Actions → iOS Unsigned IPA → Run workflow 手动触发。
-
-macos-15 运行器使用 Xcode + XcodeGen。
-通过 iphoneos SDK 对 arm64 执行 archive，关闭自动代码签名和必需签名，
-不调用需要签名资料的 exportArchive；直接把归档 .app 装入 Payload 形成 IPA。
-正常打包不需要 Apple ID、开发者证书、Mac 或付费开发者会员。
-
-project.yml 是工程配置来源，不提交自动生成的 .xcodeproj。
-构建会上传 IPA、校验报告、SHA256；失败保留编译日志与错误分类，
-临时网络或数据库错误最多自动清理重试一次。
-运行器配额和费用以 GitHub 当前规则为准。
-
-## 可选 AI 自动修复
-
-已提供 ios-ai-repair.yml，默认不开启。
-如需要，仓库 Settings → Secrets and variables → Actions 中：
-- Secret OPENAI_API_KEY：仅在 GitHub 设置中填写，不发到聊天或写进源码。
-- Variable IOS_AI_REPAIR：设为 true。
-- 若要自动创建 PR，在 Actions 设置允许创建 Pull Request。
-
-API 可能单独计费，未配置时不宣称任意代码问题都能自动修复。
-启用后只处理本仓库默认分支的受信任失败，不处理外部 fork PR，
-限制源码改动范围，重新构建校验通过才上传修复包并保存独立分支，
-不自动合并，不无限循环。首次安装报错请优先看 SideStore 的最新错误记录。
-
-## 维护
-
-不要在公开仓库上传 Apple ID、密码、证书或 API Key。
-仓库被删除重建会丢失源代码、工作流历史和原 Artifact；
-后续更新请在现有仓库直接提交代码。
+## 权限与验证范围
+只在用户使用相关功能时申请相机、麦克风、定位、相册添加权限。
+进入后台会暂停拍摄，恢复后可继续；不在后台录音录像或持续定位。
+模拟器不能代替真实设备验证相机、GPS、麦克风及 Apple 签名安装；需在 iPhone 上验收这些硬件路径。
+长视频合成受设备存储、内存和系统支持的编码格式影响；原素材不会被覆盖。

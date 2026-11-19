@@ -41,14 +41,14 @@ fi
 rm -rf build/package
 mkdir -p build/package/Payload
 ditto "$app" build/package/Payload/MoyuCamera.app
-ipa="$PWD/build/artifacts/MoyuCamera-SideStore-Fix.ipa"
+ipa="$PWD/build/artifacts/MoyuCamera.ipa"
 rm -f "$ipa"
 (cd build/package && ditto -c -k --keepParent Payload "$ipa")
 python3 scripts/validate_ipa.py "$ipa" --report build/artifacts/IPA-REPORT.json
-(cd build/artifacts && shasum -a 256 MoyuCamera-SideStore-Fix.ipa > SHA256SUMS.txt)
+(cd build/artifacts && shasum -a 256 MoyuCamera.ipa > SHA256SUMS.txt)
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
-    echo "## MoyuCamera SideStore 名称修复包"
+    echo "## MoyuCamera 2.0 原生相机"
     echo "安装名称：MoyuCamera；应用内部：中文；最低 iOS 16.0。"
     echo "已验证真机 ARM64、未签名、未加密、无中文 bundle-name 覆盖。"
     cat build/artifacts/IPA-REPORT.json

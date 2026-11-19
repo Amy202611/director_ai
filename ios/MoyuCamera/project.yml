@@ -38,20 +38,38 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        NSPhotoLibraryUsageDescription: 选择照片用于本地水印预览。
+        NSPhotoLibraryUsageDescription: 导入照片和视频，在本机编辑水印。
+        NSPhotoLibraryAddUsageDescription: 将带水印的照片和视频保存到系统相册。
+        NSCameraUsageDescription: 使用相机拍照和录像，制作水印照片与视频。
+        NSMicrophoneUsageDescription: 录像时可选择录制原声。
+        NSLocationWhenInUseUsageDescription: 点击定位时获取当前地址，地址仍可手动编辑。
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.moyu.native.camera
         PRODUCT_NAME: MoyuCamera
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.0.1"
+        MARKETING_VERSION: "2.0.0"
         CURRENT_PROJECT_VERSION: "101"
         GENERATE_INFOPLIST_FILE: NO
+  MoyuCameraTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: NativeTests
+    dependencies:
+      - target: MoyuCamera
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.moyu.native.camera.tests
 schemes:
   MoyuCamera:
     build:
       targets:
         MoyuCamera: all
+    test:
+      targets:
+        - MoyuCameraTests
     run:
       config: Debug
     archive:
