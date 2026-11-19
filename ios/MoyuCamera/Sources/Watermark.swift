@@ -5,6 +5,7 @@ struct Stamp: Codable, Equatable {
     var date = Date()
     var showDate = true, showTime = true
     var address = ""
+    var device = "", note = ""
     var top = "马克", main = "水印相机", badge = "真实时间"
     var custom = false
     var scale = 1.0, x = -1.0, y = -1.0
@@ -53,6 +54,8 @@ enum StampRenderer {
         var rows:[String] = []
         if !c.timeText.isEmpty { rows.append("时间："+c.timeText) }
         if !c.address.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty { rows.append("地点："+c.address) }
+        if !c.device.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty { rows.append("机型："+c.device) }
+        if !c.note.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty { rows.append(c.note) }
         let width = max(1,size.width-(c.hasBrand ? 106*u+margin : 0)-2*margin)
         let heights = rows.map { min(font.lineHeight*3,ceil(($0 as NSString).boundingRect(with:CGSize(width:width,height:font.lineHeight*3),options:[.usesLineFragmentOrigin,.usesFontLeading],attributes:attrs,context:nil).height)+5*u) }
         var y = size.height-margin-heights.reduce(0,+)

@@ -70,6 +70,8 @@ import UIKit
                 TextField("第一行",text:field(\.top)).textFieldStyle(.roundedBorder)
                 TextField("第二行",text:field(\.main)).textFieldStyle(.roundedBorder)
                 TextField("标签",text:field(\.badge)).textFieldStyle(.roundedBorder)
+                TextField("手机型号（可留空）",text:field(\.device)).textFieldStyle(.roundedBorder)
+                TextField("其他说明（可留空）",text:field(\.note),axis:.vertical).textFieldStyle(.roundedBorder)
                 Text("拖动预览中的标识调整位置，文字留空自动隐藏。").font(.caption).foregroundStyle(.secondary)
                 Button("回到右下角") { store.value.x = -1; store.value.y = -1 }.font(.footnote)
                 Toggle("显示自定义说明",isOn:$store.value.custom).font(.subheadline)
