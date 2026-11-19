@@ -34,6 +34,14 @@ for attempt in 1 2; do
 done
 app="$PWD/build/MoyuCamera.xcarchive/Products/Applications/MoyuCamera.app"
 test -f "$app/MoyuCamera"
+test -s "$app/Assets.car"
+python3 - "$app/Info.plist" <<'PY'
+import plistlib, sys
+info = plistlib.load(open(sys.argv[1], "rb"))
+icon = info.get("CFBundleIcons", {}).get("CFBundlePrimaryIcon", {})
+assert icon.get("CFBundleIconName") == "AppIcon", "App icon missing from compiled bundle"
+print("Compiled AppIcon verified")
+PY
 xcrun lipo -info "$app/MoyuCamera"
 if codesign --display "$app" >build/signature.log 2>&1; then
   echo "Unexpected app code signature"; exit 1

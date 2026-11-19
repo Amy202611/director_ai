@@ -28,6 +28,7 @@ jobs:
       - name: Compile and package SideStore-compatible unsigned IPA
         run: bash ios/MoyuCamera/scripts/build.sh
       - name: Test native photo and video pipeline
+        timeout-minutes: 20
         run: bash ios/MoyuCamera/scripts/test-native.sh
       - name: Publish standalone IPA for direct sharing
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
