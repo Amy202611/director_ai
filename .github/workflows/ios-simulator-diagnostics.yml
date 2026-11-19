@@ -1,0 +1,35 @@
+name: iOS Simulator Diagnostics
+on:
+  push:
+    branches: ["diagnostics/ios-simulator-20261119"]
+    paths: [".github/workflows/ios-simulator-diagnostics.yml"]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read runner and simulator registration
+        run: |
+          uname -m
+          xcodebuild -version
+          xcode-select -p
+          xcrun --sdk iphonesimulator --show-sdk-version
+          xcrun simctl list runtimes -j
+          xcrun simctl list devices available
+      - name: Generate project and inspect destinations
+        run: |
+          cd ios/MoyuCamera
+          mkdir -p Config build
+          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
+          xcodegen generate
+          xcodebuild -showBuildSettings -project MoyuCamera.xcodeproj -scheme MoyuCamera -sdk iphonesimulator ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES > build/simulator-settings.log
+          python3 - <<'PY'
+          from pathlib import Path
+          keys = ("ARCHS =","VALID_ARCHS =","EXCLUDED_ARCHS =","SDKROOT =","SUPPORTED_PLATFORMS =","SUPPORTED_DEVICE_FAMILIES =","TARGETED_DEVICE_FAMILY =")
+          for line in Path("build/simulator-settings.log").read_text().splitlines():
+              if any(line.strip().startswith(k) for k in keys): print(line)
+          PY
+          xcodebuild -showdestinations -project MoyuCamera.xcodeproj -scheme MoyuCamera -sdk iphonesimulator ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES
